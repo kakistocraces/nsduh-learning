@@ -1,0 +1,70 @@
+---
+title: "Final Project Rmd"
+author: "Nikhil Dhawan"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# Let's load libraries
+``` {r warnings=FALSE, results="hide"}
+library(tidyverse)
+library(tableone)
+library(dplyr)
+library(knitr)
+library(Publish)
+library(summarytools)
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Let\'s input the data
+
+ValueLabelFrequency%1Detox, 24-hour, hospital inpatient43,3902.6%2Detox, 24-hour, free-standing residential244,74714.7%3Rehab/residential, hospital (non-detox)4,2200.3%4Rehab/residential, short term (30 days or fewer)179,83010.8%5Rehab/residential, long term (more than 30 days)118,5457.1%6Ambulatory, intensive outpatient220,37813.2%7Ambulatory, non-intensive outpatient843,75450.6%8Ambulatory, detoxification11,5020.7%Total1,666,366100%Width: 2; Decimal: 0Variable Type: numeric
+
+
+```{r}
+load('/home/nikd/Dropbox/tedsd_puf_2018.RData')
+```
+
+# Let's look at the variables in the data set. 
+
+```{r}
+teds_puf_2017_cleaned <- tedsd_puf_2017 %>%  select(c(LOS, DAYWAIT, SERVICES,AGE))
+teds_puf_2017_cleaned <- filter(tedsd_puf_2017, tedsd_puf_2017$SERVICES < 6)
+teds_puf_2017_cleaned <- filter(teds_puf_2017_cleaned, tedsd_puf_2017$DAYWAIT > -1)
+teds_puf_2017_cleaned <- filter(teds_puf_2017_cleaned, teds_puf_2017_cleaned$LOS > -1)
+dfSummary(teds_puf_2017_cleaned) 
+```
+
+* Let's do some data analysis
+
+Everything is significant!
+
+```{r}
+catTable <- CreateCatTable(vars=names(tedsd_puf_2017)[5:16], strata=c("DAYWAIT"),data = tedsd_puf_2017)
+print(catTable) %>% kable()
+```
+
+# Let's find predictors of days waiting for treatment. 
+
+
+```{r}
+  teds_puf_2017_cleaned <- filter(tedsd_puf_2017, tedsd_puf_2017$DAYWAIT > -1)
+  teds_puf_2017_cleaned <- filter(teds_puf_2017_cleaned, teds_puf_2017_cleaned$LOS > -1)
+  lmfit <- lm(LOS ~ DAYWAIT, data = teds_puf_2017_cleaned)
+  pubout <- publish(lmfit)
+
+  with(teds_puf_2017_cleaned,cor.test(LOS,DAYWAIT))
+
+  hist(lmfit$residuals,breaks = 50)
+
+  hist(log(lmfit$residuals))
+
+residsFitted <- data.frame(resid=lmfit$residuals,fitted=lmfit$fitted.values)
+residsFitted$Prediction <- predict(lmfit,newdata = teds_puf_2017_cleaned)
+residsFitted$DAYWAIT <- teds_puf_2017_cleaned$DAYWAIT
+
+ggplot(residsFitted,aes(x=DAYWAIT,y=Prediction))+geom_point()
+```
